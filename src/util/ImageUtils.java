@@ -1,7 +1,6 @@
 package util;
 
 import java.awt.image.BufferedImage;
-import java.io.File;
 
 public class ImageUtils {
     public static int[][][] bufferedImageToSRGBArray(BufferedImage image) {
@@ -33,14 +32,5 @@ public class ImageUtils {
             }
         }
         return image;
-    }
-
-    public static String getFileExtension(File file) {
-        String name = file.getName();
-        int lastIndexOf = name.lastIndexOf(".");
-        if (lastIndexOf == -1) {
-            return "png";
-        }
-        return name.substring(lastIndexOf + 1).toLowerCase();
     }
 }

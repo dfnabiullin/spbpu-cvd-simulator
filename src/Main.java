@@ -7,9 +7,7 @@ import util.ImageUtils;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,10 +26,10 @@ public class Main {
         }
         CmdArgs cmdArgs = new CmdArgs();
         try {
-            cmdArgs.inputImagePath = Paths.get(args[0]);
-            cmdArgs.outputImagePath = Paths.get(args[1]);
+            cmdArgs.inputPath = Paths.get(args[0]);
+            cmdArgs.outputPath = Paths.get(args[1]);
         } catch (InvalidPathException e) {
-            System.err.println("Error: Invalid file path provided. " + e.getMessage());
+            System.err.println("Error: Invalid directory path provided. " + e.getMessage());
             printUsageAndExit();
         }
         for (int i = 2; i < args.length; i++) {
@@ -46,7 +44,7 @@ public class Main {
                     }
                     i++;
                 } else {
-                    System.err.println("Error: enums.Deficiency flag requires an argument.");
+                    System.err.println("Error: Deficiency flag requires an argument.");
                     printUsageAndExit();
                 }
             } else {
@@ -58,40 +56,60 @@ public class Main {
     }
 
     private static void printUsageAndExit() {
-        System.err.println("Usage: java Main <input_image> <output_image> [-d deficiency_type]");
+        System.err.println("Usage: java Main <input_directory> <output_directory> [-d deficiency_type]");
         System.err.println("Deficiency_type: protan, deutan, or tritan (default: protan)");
         System.exit(1);
     }
 
     public static void main(String[] rawArgs) {
         CmdArgs args = parseCommandLine(rawArgs);
-        BufferedImage inputImage = null;
-        try {
-            inputImage = ImageIO.read(args.inputImagePath.toFile());
-            if (inputImage == null) {
-                throw new IOException("Could not read image or unsupported format.");
-            }
-        } catch (IOException e) {
-            System.err.println("Error reading input image '" + args.inputImagePath + "': " + e.getMessage());
+        if (!Files.isDirectory(args.inputPath)) {
+            System.err.println("Error: Input path is not a directory: " + args.inputPath);
             System.exit(1);
         }
-        int[][][] imageSRGBUint8 = ImageUtils.bufferedImageToSRGBArray(inputImage);
-        Simulator simulator = new SimulatorVienot1999(new LMSModelSRGBSmithPokorny75());
-        int[][][] outputImageSRGBUint8 = simulator.simulateCvd(imageSRGBUint8, args.deficiency);
-        BufferedImage outputBufferedImage = ImageUtils.sRGBArrayToBufferedImage(outputImageSRGBUint8);
         try {
-            String outputFormat = ImageUtils.getFileExtension(args.outputImagePath.toFile());
-            ImageIO.write(outputBufferedImage, outputFormat, args.outputImagePath.toFile());
-            System.out.println("Successfully wrote output image to " + args.outputImagePath);
+            Files.createDirectories(args.outputPath);
         } catch (IOException e) {
-            System.err.println("Error writing output image '" + args.outputImagePath + "': " + e.getMessage());
+            System.err.println("Error creating output directory: " + e.getMessage());
             System.exit(1);
+        }
+        System.out.println("Starting batch processing...");
+        Simulator simulator = new SimulatorVienot1999(new LMSModelSRGBSmithPokorny75());
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(args.inputPath, "*.{jpg,jpeg,png,bmp}")) {
+            for (Path inputImagePath : stream) {
+                processImage(inputImagePath, args.outputPath, simulator, args.deficiency);
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading from input directory: " + e.getMessage());
+            System.exit(1);
+        }
+        System.out.println("Batch processing complete.");
+    }
+
+    private static void processImage(Path inputImagePath, Path outputDir, Simulator simulator, Deficiency deficiency) {
+        String fileName = inputImagePath.getFileName().toString();
+        String baseName = fileName.substring(0, fileName.lastIndexOf('.'));
+        String extension = fileName.substring(fileName.lastIndexOf('.') + 1);
+        Path outputImagePath = outputDir.resolve(baseName + "_simulated." + extension);
+        System.out.println("Processing " + inputImagePath + "  ->  " + outputImagePath);
+        try {
+            BufferedImage inputImage = ImageIO.read(inputImagePath.toFile());
+            if (inputImage == null) {
+                System.err.println("Warning: Could not read or unsupported format for " + inputImagePath);
+                return;
+            }
+            int[][][] imageSRGBUint8 = ImageUtils.bufferedImageToSRGBArray(inputImage);
+            int[][][] outputImageSRGBUint8 = simulator.simulateCvd(imageSRGBUint8, deficiency);
+            BufferedImage outputBufferedImage = ImageUtils.sRGBArrayToBufferedImage(outputImageSRGBUint8);
+            ImageIO.write(outputBufferedImage, extension, outputImagePath.toFile());
+        } catch (IOException e) {
+            System.err.println("ERROR processing file '" + inputImagePath + "': " + e.getMessage());
         }
     }
 
     private static class CmdArgs {
-        Path inputImagePath;
-        Path outputImagePath;
+        Path inputPath;
+        Path outputPath;
         Deficiency deficiency = Deficiency.PROTAN;
     }
 }
