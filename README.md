@@ -84,17 +84,19 @@ classDiagram
 
 ### 2. Запуск проекта
 
-#### 1. Компиляция
-
+1. Клонирование репозитория:
 ```bash
 git clone https://github.com/dfnabiullin/spbpu-cvd-simulator
 cd spbpu-cvd-simulator
+```
+
+2. Компиляция:
+```bash
 mkdir out
 javac -d out -sourcepath src src/Main.java
 ```
 
-#### 2. Запуск
-
+3. Запуск:
 ```bash
 java -cp out Main <input_dir> <output_dir> [-d deficiency_type]
 ```
