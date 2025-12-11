@@ -23,7 +23,7 @@
 #### Конвейер обработки данных
 
 ```mermaid
-flowchart LR
+flowchart
     Input([Исходное изображение sRGB])
     Linear[Linear RGB]
     LMS_T[LMS Trichromat]
